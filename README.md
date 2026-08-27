@@ -1,8 +1,67 @@
 # pico
 
-`pico` 是一个面向代码仓库的轻量本地 coding agent。它直接跑在终端里，先看当前工作区，再用一组受约束的工具去读文件、改文件、跑命令，并把会话状态保存在本地 `.pico/` 目录里。
+Local coding agent for repository-grounded tasks.
 
-它更像一个能在仓库里持续工作的命令行助手，不是纯聊天窗口。你可以拿它做代码排查、测试修复、仓库分析，或者让它在当前项目里执行一次性的工程任务。
+`pico` 在终端里看当前工作区，用受约束的工具读文件、改文件、跑命令，并把会话保存在本地 `.pico/`。它是带状态的任务循环，不是纯聊天窗口。
+
+- **Default model:** DeepSeek (`deepseek-v4-pro`)
+- **Also:** OpenAI-compatible, Anthropic-compatible, Ollama
+- **Runs:** session in `.pico/sessions/`, artifacts in `.pico/runs/<run_id>/` (`task_state.json`, `trace.jsonl`, `report.json`)
+
+## Why this shape
+
+- Execute in the repo, not in a detached chat box
+- Layered memory (task / file / notes) instead of stacking the whole transcript
+- Resume from task state and reject stale workspace checkpoints
+- High-risk tools (write / shell) default to approval (`ask` / `auto` / `never`)
+
+## 5-minute start
+
+Python 3.10+ required.
+
+```bash
+git clone https://github.com/hughug123/picopico.git
+cd picopico
+pip install -e .
+```
+
+Windows:
+
+```powershell
+copy .env.example .env
+```
+
+macOS / Linux:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set at least:
+
+```bash
+PICO_DEEPSEEK_API_KEY="your-api-key"
+```
+
+Then:
+
+```bash
+python -m pico
+```
+
+One-shot:
+
+```bash
+python -m pico "inspect the test failures and propose a fix"
+```
+
+Other workspace:
+
+```bash
+python -m pico --cwd /path/to/repo
+```
+
+If you use `uv`: `uv sync` then `uv run pico`.
 
 ## 适合做什么
 
@@ -13,16 +72,10 @@
 
 ## 主要特性
 
-- 包名是 `pico`
-- CLI 命令是 `pico`
-- 模块入口是 `python -m pico`
-- 会话保存在 `.pico/sessions/`
-- 每次运行的工件保存在 `.pico/runs/<run_id>/`
-- 支持四类模型后端：
-  - Ollama
-  - OpenAI 兼容 Responses API
-  - Anthropic 兼容 Messages API
-  - DeepSeek Anthropic 兼容 API
+- CLI：`pico` / `python -m pico`
+- 会话：`.pico/sessions/`
+- 运行工件：`.pico/runs/<run_id>/`
+- 模型后端：DeepSeek、OpenAI 兼容 Responses API、Anthropic 兼容 Messages API、Ollama
 
 ## 使用截图
 
@@ -37,48 +90,6 @@ CLI 帮助信息：
 REPL 内置命令与会话路径：
 
 ![pico repl](assets/screenshots/pico-repl.png)
-
-## 安装
-
-需要 Python 3.10+。
-
-如果你用 `uv`，直接安装依赖：
-
-```bash
-uv sync
-```
-
-如果你已经在自己的 Python 环境里工作，也可以直接装成可编辑模式：
-
-```bash
-pip install -e .
-```
-
-## 快速开始
-
-在当前仓库里启动交互模式。默认 provider 是 DeepSeek：
-
-```bash
-uv run pico
-```
-
-指定另一个工作目录：
-
-```bash
-uv run pico --cwd /path/to/repo
-```
-
-直接跑一次性任务：
-
-```bash
-uv run pico "inspect the test failures and propose a fix"
-```
-
-如果当前环境已经安装过包，也可以直接这样启动：
-
-```bash
-python -m pico
-```
 
 ## 模型后端
 
@@ -260,8 +271,10 @@ uv run pico --provider ollama --model qwen3.5:4b
 常用本地检查：
 
 ```bash
-uv run pytest tests -q
-uv run ruff check pico tests scripts
+python -m pytest tests -q
+python -m ruff check pico tests scripts
 ```
+
+Or with `uv`: `uv run pytest tests -q` and `uv run ruff check pico tests scripts`.
 
 内部代码现在按较轻的边界拆分：`pico/evaluation/` 放 benchmark 和 metrics，`pico/providers/` 放模型 provider client，`pico/features/` 放可选运行时能力。新代码应直接使用这些包路径；旧的 `pico.evaluator`、`pico.metrics`、`pico.models` 和 `pico.memory` import 不再作为公共入口保留。

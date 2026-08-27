@@ -62,6 +62,8 @@ class WorkspaceContext:
                     cwd=cwd,
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=True,
                     timeout=5,
                 )
@@ -82,7 +84,12 @@ class WorkspaceContext:
                 path = base / name
                 if not path.exists():
                     continue
-                key = str(path.relative_to(repo_root))
+                try:
+                    key = str(path.relative_to(repo_root))
+                except ValueError:
+                    # Windows can expose the same folder through two encodings.
+                    # Keep the snapshot and use the document name as the key.
+                    key = name
                 if key in docs:
                     continue
                 docs[key] = clip(path.read_text(encoding="utf-8", errors="replace"), 1200)
